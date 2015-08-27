@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>JavaScript Map Generation</title>
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="jquery-ui-1.11.4.custom/jquery-ui.min.css">
+    <script src="jquery-ui-1.11.4.custom/external/jquery/jquery.js"></script>
+    <script src="jquery-ui-1.11.4.custom/jquery-ui.min.js"></script>
+  </head>
+  <body>
+    <div id="map-generation">
+      <h1>Map Generation</h1>
+      <canvas id="canvas"></canvas>
+      <div id="control-panel">
+        <h2>Views</h2>
+        <div id="view-toolbar">
+          <button id="elevation-button" class="toolbar-button">Elevation</button>
+          <button id="biome-button" class="toolbar-button">Biome</button>
+          <button id="temperature-button" class="toolbar-button">Temperature</button>
+          <button id="precipitation-button" class="toolbar-button">Precipitation</button>
+        </div>
+        <div id="preferences-toolbar">
+          <h2>Real-Time Preferences</h2>
+          <label>Ocean Level</label>
+          <div id="ocean-slider" class="slider"></div>
+          <label>Temperature</label>
+          <div id="temp-slider" class="slider"></div>
+          <label>Precipitation Density</label>
+          <div id="precipitation-slider" class="slider"></div>
+          <button id="new-map">Generate New Map</button>
+        </div>
+      </div>
+    </div>
+    <script type="text/javascript" src="scripts.js"></script>
+  </body>
+</html>

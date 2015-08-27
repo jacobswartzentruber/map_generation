@@ -1,0 +1,29 @@
+h1{
+	text-align: center;
+}
+#canvas{
+	border: 1px solid gray;
+	float: left;
+	width: 45%;
+}
+#control-panel{
+	width: 50%;
+	float: right;
+}
+#view-toolbar{
+	margin: 5px 0px;
+}
+.toolbar-button{
+	display: inline-block;
+}
+#new-map{
+	margin: 5px 0px;
+	display: inline-block;
+}
+#create-map{
+	margin: 5px 0px;
+	display: inline-block;
+}
+.slider{
+	margin: 5px 0px;
+}
