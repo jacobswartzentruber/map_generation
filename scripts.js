@@ -332,3 +332,10 @@ $( "#precipitation-slider" ).slider({
           precipitationDensity = ui.value/100;
           mapChanged = true;
          }});
+
+$("#canvas").mousemove(function(event){
+  var calcSize = $(this).width()/mapSize;
+  var tileX = Math.floor((event.pageX-this.offsetLeft)/calcSize);
+  var tileY = Math.floor((event.pageY-this.offsetTop)/calcSize);
+  $("#tile-details").text("Tile ("+tileX+","+tileY+") Biome: "+map[tileX][tileY].biome);
+});

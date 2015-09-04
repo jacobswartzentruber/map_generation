@@ -1,14 +1,18 @@
 h1{
 	text-align: center;
 }
-#canvas{
+#display{
+	display: inline-block;
+	width: 49%;
 	border: 1px solid gray;
-	float: left;
-	width: 45%;
+}
+#canvas{
+	width: 100%;
 }
 #control-panel{
 	width: 50%;
-	float: right;
+	display: inline-block;
+	vertical-align: top;
 }
 #view-toolbar{
 	margin: 5px 0px;
