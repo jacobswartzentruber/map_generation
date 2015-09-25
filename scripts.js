@@ -64,6 +64,7 @@ function update(){
   currentFrame += 1;
   if(simulationRunning && currentFrame%framesPerTurn === 0){
     spawnVegetation();
+    console.log(framesPerTurn+" "+currentFrame);
   } 
   for(var i=0; i<mapSize; i++){
     for(var j=0; j<mapSize; j++){
@@ -230,7 +231,6 @@ function createMap(){
       }
     }
   }
-	console.log(map);
 }
 
 function spawnVegetation(){
@@ -267,11 +267,12 @@ $("#new-map").click(function(){
   update();
 });
 
-$("#create-map").click(function(){
-  console.log("Creating Final Map");
-  $("#preferences-toolbar").hide();
-  simulationRunning = true;
-  update();
+$("#toggle-sim").click(function(){
+  $("#preferences-toolbar").toggle();
+  simulationRunning = !simulationRunning;
+  simulationRunning ? $(this).text("Stop Simulation") : $(this).text("Start Simulation");
+  console.log("Sim Running="+simulationRunning);
+  //update();
 });
 
 $("#biome-button").click(function(){
@@ -336,6 +337,8 @@ $( "#precipitation-slider" ).slider({
 $("#canvas").mousemove(function(event){
   var calcSize = $(this).width()/mapSize;
   var tileX = Math.floor((event.pageX-this.offsetLeft)/calcSize);
+  if(tileX === mapSize){tileX = mapSize-1};
   var tileY = Math.floor((event.pageY-this.offsetTop)/calcSize);
+  if(tileY === mapSize){tileY = mapSize-1};
   $("#tile-details").text("Tile ("+tileX+","+tileY+") Biome: "+map[tileX][tileY].biome);
 });
