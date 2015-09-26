@@ -27,6 +27,9 @@ var canvas = document.getElementById("canvas"),
     currentFrame = 0;
     framesPerTurn = 100;
     currentView = "elevation";
+    vegetationSpecies = [];
+    numVegSpecies = 2;
+    roundsVegRandomize = 3;
 
 //Access BiomeKey by [TemperatureZone][MoistureZone]
 var biomeKey = [["Scorched","Bare","Tundra","Snow","Snow","Snow"],
@@ -63,7 +66,8 @@ for(var i=0; i<mapSize; i++){
 function update(){
   currentFrame += 1;
   if(simulationRunning && currentFrame%framesPerTurn === 0){
-    spawnVegetation();
+    roundsVegRandomize > 0 ? spawnVegetation(true) : spawnVegetation(false);
+    roundsVegRandomize--;
     console.log(framesPerTurn+" "+currentFrame);
   } 
   for(var i=0; i<mapSize; i++){
@@ -71,7 +75,7 @@ function update(){
       if(simulationRunning && currentFrame%framesPerTurn === 0){
         //Draw Vegetation
         if(map[i][j].vegetation){
-          ctx.fillStyle = 'rgb(0,255,0)';
+          ctx.fillStyle = 'rgb('+map[i][j].vegetation.color+')';
           ctx.fillRect(i*cellSize+cellSize/4, j*cellSize+cellSize/4, cellSize/2, cellSize/2);
         }
       }
@@ -231,23 +235,67 @@ function createMap(){
       }
     }
   }
+  
+  //Create Vegetation Species
+  for(var i=0; i<numVegSpecies; i++){
+    var vegColor = Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255);
+    var vegIdealSoil = Math.random();
+    var vegFertility = Math.random();
+    vegetationSpecies[i] = {name: i, idealSoilRichness: vegIdealSoil, color: vegColor, fertility: vegFertility};
+  }
+  console.log(vegetationSpecies);
 }
 
-function spawnVegetation(){
+function spawnVegetation(randomizeVeg){
   console.log("spawning vegetation");
-  for(var i=0; i<mapSize; i++){
-    for (var j=0; j<mapSize; j++){
-      if(!map[i][j].vegetation && map[i][j].soilRichness >= Math.random()){
-        map[i][j].vegetation = true;
-        for(var x=0; x<3; x++){
-          for (var y=0; y<3; y++){
-            var tempX = i+x-1;
-            var tempY = j+y-1;
-            if(i+x-1 < 0){tempX = mapSize-1;}
-            if(i+x-1 === mapSize){tempX = 0;}
-            if(j+y-1 < 0){tempY = mapSize-1;}
-            if(j+y-1 === mapSize){tempY = 0;} 
-            map[tempX][tempY].soilRichness += biomeStats[map[tempX][tempY].biome].soilRichness/8;
+  if(!randomizeVeg){
+    for(var i=0; i<mapSize; i++){
+      for (var j=0; j<mapSize; j++){
+        if(!map[i][j].vegetation){
+          //Find all contenders for vegetation population of tile
+          var contenders = [];
+          for(var x=0; x<3; x++){
+            for (var y=0; y<3; y++){
+              var tempX = i+x-1;
+              var tempY = j+y-1;
+              if(i+x-1 < 0){tempX = mapSize-1;}
+              if(i+x-1 === mapSize){tempX = 0;}
+              if(j+y-1 < 0){tempY = mapSize-1;}
+              if(j+y-1 === mapSize){tempY = 0;}
+              if(map[tempX][tempY].vegetation){
+                if(contenders[map[tempX][tempY].vegetation.name]){
+                  contenders[map[tempX][tempY].vegetation.name] += map[tempX][tempY].vegetation.fertility/8;
+                }else{
+                  contenders[map[tempX][tempY].vegetation.name] = map[tempX][tempY].vegetation.fertility/8;
+                }
+              }
+            }
+          }
+          for(var x=0; x<vegetationSpecies.length; x++){
+            if(!map[i][j].vegetation && contenders[x] >= Math.random()){
+              map[i][j].vegetation = vegetationSpecies[x];
+            }
+          }
+        }
+        //Determine seeding priority for all possible vegetation on tile
+        //Going through priority order, test to see if vegetation populates tile
+      }
+    }
+  }else{
+    for(var i=0; i<mapSize; i++){
+      for (var j=0; j<mapSize; j++){
+        if(!map[i][j].vegetation && map[i][j].soilRichness >= Math.random()){
+          map[i][j].vegetation = vegetationSpecies[0];
+          for(var x=0; x<3; x++){
+            for (var y=0; y<3; y++){
+              var tempX = i+x-1;
+              var tempY = j+y-1;
+              if(i+x-1 < 0){tempX = mapSize-1;}
+              if(i+x-1 === mapSize){tempX = 0;}
+              if(j+y-1 < 0){tempY = mapSize-1;}
+              if(j+y-1 === mapSize){tempY = 0;} 
+              map[tempX][tempY].soilRichness += biomeStats[map[tempX][tempY].biome].soilRichness/8;
+            }
           }
         }
       }
