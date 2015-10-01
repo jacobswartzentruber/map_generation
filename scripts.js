@@ -23,13 +23,15 @@ var canvas = document.getElementById("canvas"),
     oceanLevel = 70,
     map = [],
     mapChanged = false,
+    viewChanged = false,
     simulationRunning = false,
     currentFrame = 0;
-    framesPerTurn = 100;
+    framesPerTurn = 20;
     currentView = "elevation";
     vegetationSpecies = [];
-    numVegSpecies = 2;
+    numVegSpecies = 20;
     roundsVegRandomize = 3;
+    biomeVegTolerance = 0.1; //Amount of tolerance biomes allows on either side of its ideal soil richness for vegetation growth
 
 //Access BiomeKey by [TemperatureZone][MoistureZone]
 var biomeKey = [["Scorched","Bare","Tundra","Snow","Snow","Snow"],
@@ -81,6 +83,9 @@ function update(){
       }
       //Redraw map if anything about it changed
       if(mapChanged){
+        //Reset all vegetation 
+        map[i][j].vegetation = null;
+        roundsVegRandomize = 3;
         //Update tile biome based on variant 
         if(map[i][j].elevation <= oceanLevel){
           map[i][j].biome = "Ocean";
@@ -98,7 +103,8 @@ function update(){
           map[i][j].biome = biomeKey[tempLevel][precLevel];
         }
         map[i][j].soilRichness = biomeStats[map[i][j].biome].soilRichness/8;
-
+      }
+      if(viewChanged){
         //Colors for various Views
         ctx.fillStyle = 'rgb('+biomeStats[map[i][j].biome].color+')';
         
@@ -144,13 +150,14 @@ function update(){
       }
     }
   }
-
+  viewChanged = false;
   mapChanged = false;
   requestAnimationFrame(update);
 }
 
 function createMap(){
   mapChanged = true;
+  viewChanged = true;
 
   //Set elevation seed corners
   map[0][0] = {elevation: Math.floor(Math.random()*maxElevation), precipitation: Math.floor(Math.random()*maxPrecipitation)};
@@ -240,7 +247,7 @@ function createMap(){
   for(var i=0; i<numVegSpecies; i++){
     var vegColor = Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255);
     var vegIdealSoil = Math.random();
-    var vegFertility = Math.random();
+    var vegFertility = Math.random()/2;
     vegetationSpecies[i] = {name: i, idealSoilRichness: vegIdealSoil, color: vegColor, fertility: vegFertility};
   }
   console.log(vegetationSpecies);
@@ -248,12 +255,14 @@ function createMap(){
 
 function spawnVegetation(randomizeVeg){
   console.log("spawning vegetation");
-  if(!randomizeVeg){
-    for(var i=0; i<mapSize; i++){
-      for (var j=0; j<mapSize; j++){
-        if(!map[i][j].vegetation){
-          //Find all contenders for vegetation population of tile
-          var contenders = [];
+  for(var i=0; i<mapSize; i++){
+    for (var j=0; j<mapSize; j++){
+      if(!map[i][j].vegetation && map[i][j].biome !== "Ocean"){
+        //Find all contenders for vegetation population of tile and set appropriate proximity bonus
+        var seeds = [];
+        if(randomizeVeg){
+          seeds.push(vegetationSpecies[Math.floor(vegetationSpecies.length*Math.random())].name);
+        }else{
           for(var x=0; x<3; x++){
             for (var y=0; y<3; y++){
               var tempX = i+x-1;
@@ -263,39 +272,27 @@ function spawnVegetation(randomizeVeg){
               if(j+y-1 < 0){tempY = mapSize-1;}
               if(j+y-1 === mapSize){tempY = 0;}
               if(map[tempX][tempY].vegetation){
-                if(contenders[map[tempX][tempY].vegetation.name]){
-                  contenders[map[tempX][tempY].vegetation.name] += map[tempX][tempY].vegetation.fertility/8;
-                }else{
-                  contenders[map[tempX][tempY].vegetation.name] = map[tempX][tempY].vegetation.fertility/8;
-                }
+                seeds.push(map[tempX][tempY].vegetation.name);
               }
             }
           }
-          for(var x=0; x<vegetationSpecies.length; x++){
-            if(!map[i][j].vegetation && contenders[x] >= Math.random()){
-              map[i][j].vegetation = vegetationSpecies[x];
-            }
-          }
         }
-        //Determine seeding priority for all possible vegetation on tile
-        //Going through priority order, test to see if vegetation populates tile
-      }
-    }
-  }else{
-    for(var i=0; i<mapSize; i++){
-      for (var j=0; j<mapSize; j++){
-        if(!map[i][j].vegetation && map[i][j].soilRichness >= Math.random()){
-          map[i][j].vegetation = vegetationSpecies[0];
-          for(var x=0; x<3; x++){
-            for (var y=0; y<3; y++){
-              var tempX = i+x-1;
-              var tempY = j+y-1;
-              if(i+x-1 < 0){tempX = mapSize-1;}
-              if(i+x-1 === mapSize){tempX = 0;}
-              if(j+y-1 < 0){tempY = mapSize-1;}
-              if(j+y-1 === mapSize){tempY = 0;} 
-              map[tempX][tempY].soilRichness += biomeStats[map[tempX][tempY].biome].soilRichness/8;
-            }
+        //Shuffle seed array
+        var currentIndex = seeds.length, temporaryValue, randomIndex;
+        while (0 !== currentIndex) {
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex -= 1;
+          temporaryValue = seeds[currentIndex];
+          seeds[currentIndex] = seeds[randomIndex];
+          seeds[randomIndex] = temporaryValue;
+        }
+        //Going through seeds array in order, see if seed populates tile
+        for(var x=0; x<seeds.length; x++){
+          var idealBiomePercentage = 1-Math.abs(vegetationSpecies[seeds[x]].idealSoilRichness-biomeStats[map[i][j].biome].soilRichness)/biomeVegTolerance;
+          if(idealBiomePercentage < 0){idealBiomePercentage = 0;}
+          var successChance = Math.pow(idealBiomePercentage,2)*vegetationSpecies[seeds[x]].fertility/8;
+          if(!map[i][j].vegetation && successChance >= Math.random()){
+            map[i][j].vegetation = vegetationSpecies[seeds[x]];
           }
         }
       }
@@ -326,28 +323,28 @@ $("#toggle-sim").click(function(){
 $("#biome-button").click(function(){
   currentView = "biome";
   console.log(currentView);
-  mapChanged = true;
+  viewChanged = true;
   update();
 });
 
 $("#elevation-button").click(function(){
   currentView = "elevation";
   console.log(currentView);
-  mapChanged = true;
+  viewChanged = true;
   update();
 });
 
 $("#precipitation-button").click(function(){
   currentView = "precipitation";
-    console.log(currentView);
-  mapChanged = true;
+  console.log(currentView);
+  viewChanged = true;
   update();
 });
 
 $("#temperature-button").click(function(){
   currentView = "temperature";
-    console.log(currentView);
-  mapChanged = true;
+  console.log(currentView);
+  viewChanged = true;
   update();
 });
 
@@ -359,6 +356,7 @@ $( "#ocean-slider" ).slider({
   slide: function( event, ui ) {
           oceanLevel = ui.value;
           mapChanged = true;
+          viewChanged = true;
          }});
 
 $( "#temp-slider" ).slider({
@@ -370,6 +368,7 @@ $( "#temp-slider" ).slider({
           lowTemp = ui.values[0];
           highTemp = ui.values[1];
           mapChanged = true;
+          viewChanged = true;
          }});
 
 $( "#precipitation-slider" ).slider({
@@ -380,6 +379,7 @@ $( "#precipitation-slider" ).slider({
   slide: function( event, ui ) {
           precipitationDensity = ui.value/100;
           mapChanged = true;
+          viewChanged = true;
          }});
 
 $("#canvas").mousemove(function(event){
