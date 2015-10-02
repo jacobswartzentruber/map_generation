@@ -7,8 +7,11 @@
 //Define all game variables and parameters
 var canvas = document.getElementById("canvas"),
     ctx = canvas.getContext("2d"),
+    keys = [],
     mapSize = 64,
     cellSize = 10,
+    mapXOffset = 0,
+    mapYOffset = 0,
     maxElevation = 200,
     maxElevRandomize = 15,
     numStepsRandomize = 2,
@@ -67,20 +70,37 @@ for(var i=0; i<mapSize; i++){
 // The update function which calculates each animation frame
 function update(){
   currentFrame += 1;
-  if(simulationRunning && currentFrame%framesPerTurn === 0){
-    roundsVegRandomize > 0 ? spawnVegetation(true) : spawnVegetation(false);
-    roundsVegRandomize--;
-    console.log(framesPerTurn+" "+currentFrame);
+  // Check keys and update map scrolling accordingly
+  if(viewChanged){
+    if (keys[37]) {                 
+      // left arrow
+      mapXOffset > 0 ? mapXOffset-- : mapXOffset = mapSize-1;           
+    }
+    if (keys[38]) {
+      // up arrow
+      mapYOffset > 0 ? mapYOffset--: mapYOffset = mapSize-1;
+    }
+    if (keys[39]) {
+      // right arrow
+      mapXOffset < mapSize-1 ? mapXOffset++ : mapXOffset = 0;
+    }
+    if (keys[40]){
+      // down arrow
+      mapYOffset < mapSize-1 ? mapYOffset++ : mapYOffset = 0;
+    } 
   } 
+  if(simulationRunning && currentFrame%framesPerTurn === 0){
+    viewChanged = true;
+    if(roundsVegRandomize > 0){
+      spawnVegetation(true);
+      roundsVegRandomize--;
+    }else{
+      spawnVegetation(false);
+    }
+    console.log(framesPerTurn+" "+currentFrame);
+  }        
   for(var i=0; i<mapSize; i++){
     for(var j=0; j<mapSize; j++){
-      if(simulationRunning && currentFrame%framesPerTurn === 0){
-        //Draw Vegetation
-        if(map[i][j].vegetation){
-          ctx.fillStyle = 'rgb('+map[i][j].vegetation.color+')';
-          ctx.fillRect(i*cellSize+cellSize/4, j*cellSize+cellSize/4, cellSize/2, cellSize/2);
-        }
-      }
       //Redraw map if anything about it changed
       if(mapChanged){
         //Reset all vegetation 
@@ -105,6 +125,9 @@ function update(){
         map[i][j].soilRichness = biomeStats[map[i][j].biome].soilRichness/8;
       }
       if(viewChanged){
+        var iOffset, jOffset;
+        i+mapXOffset >= mapSize ? iOffset = i+mapXOffset-mapSize : iOffset = i+mapXOffset;
+        j+mapYOffset >= mapSize ? jOffset = j+mapYOffset-mapSize : jOffset = j+mapYOffset;
         //Colors for various Views
         ctx.fillStyle = 'rgb('+biomeStats[map[i][j].biome].color+')';
         
@@ -145,8 +168,13 @@ function update(){
           var averageB = Math.floor((1-localTemp/maxTemperature)*parseInt(ctx.fillStyle.substring(5), 16)+Math.floor(255*(1-localTemp/maxTemperature)));
           ctx.fillStyle = 'rgb('+Math.round(255*(localTemp/maxTemperature))+','+halfG+','+averageB+')';
         }
-        
-        ctx.fillRect(i*cellSize, j*cellSize, cellSize, cellSize);
+        ctx.fillRect(iOffset*cellSize, jOffset*cellSize, cellSize, cellSize);
+
+        //Draw Vegetation
+        if(map[i][j].vegetation){
+          ctx.fillStyle = 'rgb('+map[i][j].vegetation.color+')';
+          ctx.fillRect(iOffset*cellSize+cellSize/4, jOffset*cellSize+cellSize/4, cellSize/2, cellSize/2);
+        }
       }
     }
   }
@@ -389,4 +417,15 @@ $("#canvas").mousemove(function(event){
   var tileY = Math.floor((event.pageY-this.offsetTop)/calcSize);
   if(tileY === mapSize){tileY = mapSize-1};
   $("#tile-details").text("Tile ("+tileX+","+tileY+") Biome: "+map[tileX][tileY].biome);
+});
+
+//Assign click handlers to body element and adjust "key" booleans accordingly
+$('body').keydown(function(key) {
+  key.preventDefault();
+  keys[key.which] = true;
+  viewChanged = true;
+});
+
+$('body').keyup(function(key) {
+  keys[key.which] = false;
 });
