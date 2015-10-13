@@ -28,12 +28,13 @@ var canvas = document.getElementById("canvas"),
     mapChanged = false,
     viewChanged = false,
     simulationRunning = false,
-    currentFrame = 0;
-    framesPerTurn = 20;
-    currentView = "elevation";
-    vegetationSpecies = [];
-    numVegSpecies = 20;
-    roundsVegRandomize = 3;
+    currentFrame = 0,
+    framesPerTurn = 20,
+    currentView = "elevation",
+    vegetationSpecies = [],
+    vegSpeciesAlive = [],
+    numVegSpecies = 20,
+    roundsVegRandomize = 3,
     biomeVegTolerance = 0.1; //Amount of tolerance biomes allows on either side of its ideal soil richness for vegetation growth
 
 //Access BiomeKey by [TemperatureZone][MoistureZone]
@@ -94,18 +95,28 @@ function update(){
     if(roundsVegRandomize > 0){
       spawnVegetation(true);
       roundsVegRandomize--;
+      //Check to see how many vegetation species populated world, if less than designated percentage then restart
+      console.log(vegSpeciesAlive.length+" veg species alive")
+      if(roundsVegRandomize === 0 && vegSpeciesAlive.length < numVegSpecies*0.25){
+        mapChanged = true;
+      }
     }else{
       spawnVegetation(false);
     }
-    console.log(framesPerTurn+" "+currentFrame);
-  }        
+  }
+  //If map has been changed then create new Vegetation Species to inhabit
+  if(mapChanged){
+    vegSpeciesAlive = [];
+    roundsVegRandomize = 3;
+    createVegetationSpecies();
+  }
   for(var i=0; i<mapSize; i++){
     for(var j=0; j<mapSize; j++){
       //Redraw map if anything about it changed
       if(mapChanged){
-        //Reset all vegetation 
+        //Reset all vegetation
         map[i][j].vegetation = null;
-        roundsVegRandomize = 3;
+
         //Update tile biome based on variant 
         if(map[i][j].elevation <= oceanLevel){
           map[i][j].biome = "Ocean";
@@ -270,19 +281,19 @@ function createMap(){
       }
     }
   }
-  
-  //Create Vegetation Species
+}
+
+function createVegetationSpecies(){
   for(var i=0; i<numVegSpecies; i++){
     var vegColor = Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255);
     var vegIdealSoil = Math.random();
     var vegFertility = Math.random()/2;
-    vegetationSpecies[i] = {name: i, idealSoilRichness: vegIdealSoil, color: vegColor, fertility: vegFertility};
+    vegetationSpecies[i] = {name: i, idealSoilRichness: vegIdealSoil, color: vegColor, fertility: vegFertility, onMap: false};
   }
   console.log(vegetationSpecies);
 }
 
 function spawnVegetation(randomizeVeg){
-  console.log("spawning vegetation");
   for(var i=0; i<mapSize; i++){
     for (var j=0; j<mapSize; j++){
       if(!map[i][j].vegetation && map[i][j].biome !== "Ocean"){
@@ -320,6 +331,7 @@ function spawnVegetation(randomizeVeg){
           if(idealBiomePercentage < 0){idealBiomePercentage = 0;}
           var successChance = Math.pow(idealBiomePercentage,2)*vegetationSpecies[seeds[x]].fertility/8;
           if(!map[i][j].vegetation && successChance >= Math.random()){
+            if(vegSpeciesAlive.indexOf(seeds[x]) === -1){vegSpeciesAlive.push(seeds[x]);}
             map[i][j].vegetation = vegetationSpecies[seeds[x]];
           }
         }
