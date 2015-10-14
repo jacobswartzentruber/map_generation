@@ -29,6 +29,7 @@ var canvas = document.getElementById("canvas"),
     viewChanged = false,
     simulationRunning = false,
     currentFrame = 0,
+    currentTurn = 0,
     framesPerTurn = 1,
     currentView = "elevation",
     vegetationSpecies = [],
@@ -70,7 +71,8 @@ for(var i=0; i<mapSize; i++){
 
 // The update function which calculates each animation frame
 function update(){
-  currentFrame += 1;
+  currentFrame ++;
+  if(currentFrame%framesPerTurn === 0){currentTurn++;}
   // Check keys and update map scrolling accordingly
   if(viewChanged){
     if (keys[37]) {                 
@@ -113,7 +115,7 @@ function update(){
   for(var i=0; i<mapSize; i++){
     for(var j=0; j<mapSize; j++){
       //Update vegetation maturity if correct frame dependent on maturity rate
-      if(simulationRunning && map[i][j].vegetation && map[i][j].vegetation.maturity<100 && (currentFrame/framesPerTurn)%map[i][j].vegetation.maturityRate === 0){
+      if(simulationRunning && map[i][j].vegetation && map[i][j].vegetation.maturity<100 && currentTurn%map[i][j].vegetation.maturityRate === 0){
         map[i][j].vegetation.maturity++;
         //console.log(map[i][j].vegetation.maturity);
       }
