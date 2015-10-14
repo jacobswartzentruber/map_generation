@@ -29,7 +29,7 @@ var canvas = document.getElementById("canvas"),
     viewChanged = false,
     simulationRunning = false,
     currentFrame = 0,
-    framesPerTurn = 20,
+    framesPerTurn = 1,
     currentView = "elevation",
     vegetationSpecies = [],
     vegSpeciesAlive = [],
@@ -97,7 +97,7 @@ function update(){
       roundsVegRandomize--;
       //Check to see how many vegetation species populated world, if less than designated percentage then restart
       console.log(vegSpeciesAlive.length+" veg species alive")
-      if(roundsVegRandomize === 0 && vegSpeciesAlive.length < numVegSpecies*0.25){
+      if(roundsVegRandomize === 0 && vegSpeciesAlive.length < numVegSpecies*0.3){
         mapChanged = true;
       }
     }else{
@@ -112,6 +112,11 @@ function update(){
   }
   for(var i=0; i<mapSize; i++){
     for(var j=0; j<mapSize; j++){
+      //Update vegetation maturity if correct frame dependent on maturity rate
+      if(simulationRunning && map[i][j].vegetation && map[i][j].vegetation.maturity<100 && (currentFrame/framesPerTurn)%map[i][j].vegetation.maturityRate === 0){
+        map[i][j].vegetation.maturity++;
+        //console.log(map[i][j].vegetation.maturity);
+      }
       //Redraw map if anything about it changed
       if(mapChanged){
         //Reset all vegetation
@@ -184,7 +189,8 @@ function update(){
         //Draw Vegetation
         if(map[i][j].vegetation){
           ctx.fillStyle = 'rgb('+map[i][j].vegetation.color+')';
-          ctx.fillRect(iOffset*cellSize+cellSize/4, jOffset*cellSize+cellSize/4, cellSize/2, cellSize/2);
+          var vegSize = cellSize * (map[i][j].vegetation.maturity/100);
+          ctx.fillRect(iOffset*cellSize+(cellSize-vegSize)/2, jOffset*cellSize+(cellSize-vegSize)/2, vegSize, vegSize);
         }
       }
     }
@@ -287,8 +293,13 @@ function createVegetationSpecies(){
   for(var i=0; i<numVegSpecies; i++){
     var vegColor = Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255)+','+Math.floor(Math.random()*255);
     var vegIdealSoil = Math.random();
-    var vegFertility = Math.random()/2;
-    vegetationSpecies[i] = {name: i, idealSoilRichness: vegIdealSoil, color: vegColor, fertility: vegFertility, onMap: false};
+    var vegFertility = Math.random()/4;
+    vegetationSpecies[i] = {name: i, 
+                            idealSoilRichness: vegIdealSoil,
+                            color: vegColor,
+                            fertility: vegFertility,
+                            maturity: 1,
+                            maturityRate: Math.round(vegFertility*100)};
   }
   console.log(vegetationSpecies);
 }
@@ -310,7 +321,7 @@ function spawnVegetation(randomizeVeg){
               if(i+x-1 === mapSize){tempX = 0;}
               if(j+y-1 < 0){tempY = mapSize-1;}
               if(j+y-1 === mapSize){tempY = 0;}
-              if(map[tempX][tempY].vegetation){
+              if(map[tempX][tempY].vegetation && map[tempX][tempY].vegetation.maturity>=20){
                 seeds.push(map[tempX][tempY].vegetation.name);
               }
             }
@@ -332,7 +343,7 @@ function spawnVegetation(randomizeVeg){
           var successChance = Math.pow(idealBiomePercentage,2)*vegetationSpecies[seeds[x]].fertility/8;
           if(!map[i][j].vegetation && successChance >= Math.random()){
             if(vegSpeciesAlive.indexOf(seeds[x]) === -1){vegSpeciesAlive.push(seeds[x]);}
-            map[i][j].vegetation = vegetationSpecies[seeds[x]];
+            map[i][j].vegetation = Object.create(vegetationSpecies[seeds[x]]);
           }
         }
       }
