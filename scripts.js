@@ -190,8 +190,8 @@ function update(){
 
         //Draw Vegetation
         if(map[i][j].vegetation){
-          ctx.fillStyle = 'rgb('+map[i][j].vegetation.color+')';
-          var vegSize = cellSize * (map[i][j].vegetation.maturity/100);
+          ctx.fillStyle = 'rgba('+map[i][j].vegetation.color+',0.65)';
+          var vegSize = (0.15*cellSize) + cellSize * 0.70 * (map[i][j].vegetation.maturity/100);
           ctx.fillRect(iOffset*cellSize+(cellSize-vegSize)/2, jOffset*cellSize+(cellSize-vegSize)/2, vegSize, vegSize);
         }
       }
@@ -441,7 +441,9 @@ $("#canvas").mousemove(function(event){
   if(tileX === mapSize){tileX = mapSize-1};
   var tileY = Math.floor((event.pageY-this.offsetTop)/calcSize);
   if(tileY === mapSize){tileY = mapSize-1};
-  $("#tile-details").text("Tile ("+tileX+","+tileY+") Biome: "+map[tileX][tileY].biome);
+  var tileVegName = "None";
+  if(map[tileX][tileY].vegetation){tileVegName = map[tileX][tileY].vegetation.name;}
+  $("#tile-details").text("Tile ("+tileX+","+tileY+") Biome: "+map[tileX][tileY].biome+" Vegetation: "+tileVegName);
 });
 
 //Assign click handlers to body element and adjust "key" booleans accordingly
