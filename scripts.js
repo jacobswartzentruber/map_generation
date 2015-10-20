@@ -27,9 +27,11 @@ var canvas = document.getElementById("canvas"),
     map = [],
     mapChanged = false,
     viewChanged = false,
+    vegChanged = false,
     simulationRunning = false,
     currentFrame = 0,
-    currentTurn = 0,
+    turnNumber = 0,
+    currentTurn = false,
     framesPerTurn = 1,
     currentView = "elevation",
     vegetationSpecies = [],
@@ -72,7 +74,10 @@ for(var i=0; i<mapSize; i++){
 // The update function which calculates each animation frame
 function update(){
   currentFrame ++;
-  if(currentFrame%framesPerTurn === 0){currentTurn++;}
+  if(currentFrame%framesPerTurn === 0){
+    turnNumber++;
+    currentTurn = true;
+  }
   // Check keys and update map scrolling accordingly
   if(viewChanged){
     if (keys[37]) {                 
@@ -92,8 +97,8 @@ function update(){
       mapYOffset < mapSize-1 ? mapYOffset++ : mapYOffset = 0;
     } 
   } 
-  if(simulationRunning && currentFrame%framesPerTurn === 0){
-    viewChanged = true;
+  if(simulationRunning && currentTurn){
+    vegChanged = true;
     if(roundsVegRandomize > 0){
       spawnVegetation(true);
       roundsVegRandomize--;
@@ -114,8 +119,11 @@ function update(){
   }
   for(var i=0; i<mapSize; i++){
     for(var j=0; j<mapSize; j++){
+      var iOffset, jOffset;
+      i+mapXOffset >= mapSize ? iOffset = i+mapXOffset-mapSize : iOffset = i+mapXOffset;
+      j+mapYOffset >= mapSize ? jOffset = j+mapYOffset-mapSize : jOffset = j+mapYOffset;
       //Update vegetation maturity if correct frame dependent on maturity rate
-      if(simulationRunning && map[i][j].vegetation && map[i][j].vegetation.maturity<100 && currentTurn%map[i][j].vegetation.maturityRate === 0){
+      if(simulationRunning && map[i][j].vegetation && map[i][j].vegetation.maturity<100 && turnNumber%map[i][j].vegetation.maturityRate === 0){
         map[i][j].vegetation.maturity++;
         //console.log(map[i][j].vegetation.maturity);
       }
@@ -143,9 +151,6 @@ function update(){
         map[i][j].soilRichness = biomeStats[map[i][j].biome].soilRichness/8;
       }
       if(viewChanged){
-        var iOffset, jOffset;
-        i+mapXOffset >= mapSize ? iOffset = i+mapXOffset-mapSize : iOffset = i+mapXOffset;
-        j+mapYOffset >= mapSize ? jOffset = j+mapYOffset-mapSize : jOffset = j+mapYOffset;
         //Colors for various Views
         ctx.fillStyle = 'rgb('+biomeStats[map[i][j].biome].color+')';
         
@@ -191,14 +196,22 @@ function update(){
         //Draw Vegetation
         if(map[i][j].vegetation){
           ctx.fillStyle = 'rgba('+map[i][j].vegetation.color+',0.65)';
-          var vegSize = (0.15*cellSize) + cellSize * 0.70 * (map[i][j].vegetation.maturity/100);
+          var vegSize = (0.1*cellSize) + cellSize * 0.65 * (map[i][j].vegetation.maturity/100);
           ctx.fillRect(iOffset*cellSize+(cellSize-vegSize)/2, jOffset*cellSize+(cellSize-vegSize)/2, vegSize, vegSize);
         }
+      }
+      if(vegChanged && map[i][j].vegetation){
+        //Draw Vegetation
+        ctx.fillStyle = 'rgba('+map[i][j].vegetation.color+',0.65)';
+        var vegSize = (0.1*cellSize) + cellSize * 0.65 * (map[i][j].vegetation.maturity/100);
+        ctx.fillRect(iOffset*cellSize+(cellSize-vegSize)/2, jOffset*cellSize+(cellSize-vegSize)/2, vegSize, vegSize);
       }
     }
   }
   viewChanged = false;
   mapChanged = false;
+  vegChanged = false;
+  currentTurn = false;
   requestAnimationFrame(update);
 }
 
