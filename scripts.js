@@ -8,6 +8,7 @@
 var canvas = document.getElementById("canvas"),
     ctx = canvas.getContext("2d"),
     keys = [],
+    fps = 0,
     mapSize = 64,
     cellSize = 10,
     mapXOffset = 0,
@@ -39,6 +40,7 @@ var canvas = document.getElementById("canvas"),
     numVegSpecies = 20,
     roundsVegRandomize = 3,
     biomeVegTolerance = 0.1; //Amount of tolerance biomes allows on either side of its ideal soil richness for vegetation growth
+    maxVegSpreadRadius = 3;
 
 //Access BiomeKey by [TemperatureZone][MoistureZone]
 var biomeKey = [["Scorched","Bare","Tundra","Snow","Snow","Snow"],
@@ -73,6 +75,7 @@ for(var i=0; i<mapSize; i++){
 
 // The update function which calculates each animation frame
 function update(){
+  var fpsStart = Date.now();
   currentFrame ++;
   if(currentFrame%framesPerTurn === 0){
     turnNumber++;
@@ -208,6 +211,12 @@ function update(){
       }
     }
   }
+  //Update FPS label
+  fps>0 ? fps=(fps+(1000/(Date.now()-fpsStart)))/2 : fps=1000/(Date.now()-fpsStart);
+  if(currentFrame%30 === 0){
+    $("#fps").text("FPS "+Math.round(fps));
+    fps = 0;
+  }
   viewChanged = false;
   mapChanged = false;
   vegChanged = false;
@@ -314,7 +323,8 @@ function createVegetationSpecies(){
                             color: vegColor,
                             fertility: vegFertility,
                             maturity: 1,
-                            maturityRate: Math.round(vegFertility*100)};
+                            maturityRate: Math.round(vegFertility*100),
+                            spreadRadius: Math.ceil(Math.random()*maxVegSpreadRadius)};
   }
   console.log(vegetationSpecies);
 }
@@ -328,15 +338,20 @@ function spawnVegetation(randomizeVeg){
         if(randomizeVeg){
           seeds.push(vegetationSpecies[Math.floor(vegetationSpecies.length*Math.random())].name);
         }else{
-          for(var x=0; x<3; x++){
-            for (var y=0; y<3; y++){
-              var tempX = i+x-1;
-              var tempY = j+y-1;
-              if(i+x-1 < 0){tempX = mapSize-1;}
-              if(i+x-1 === mapSize){tempX = 0;}
-              if(j+y-1 < 0){tempY = mapSize-1;}
-              if(j+y-1 === mapSize){tempY = 0;}
-              if(map[tempX][tempY].vegetation && map[tempX][tempY].vegetation.maturity>=20){
+          //THIS IMPLEMEMENTATION IS CURRENTLY WRONG BECAUSE IT ASSUMES A SPREAD RADIUS OF 3 AS
+          //EVIDENCED BY THE x<7 and x-3.  CHANGE IF YOU WANT TO INCORPORATE LOCAL SPREAD RADII
+          for(var x=0; x<maxVegSpreadRadius*2+1; x++){
+            for (var y=0; y<maxVegSpreadRadius*2+1; y++){
+              var tempX = i+x-maxVegSpreadRadius;
+              var tempY = j+y-maxVegSpreadRadius;
+              if(tempX < 0){tempX = mapSize+tempX;}
+              if(tempX >= mapSize){tempX = tempX-mapSize;}
+              if(tempY < 0){tempY = mapSize+tempY;}
+              if(tempY >= mapSize){tempY = tempY-mapSize;}
+              if(map[tempX][tempY].vegetation
+                 && map[tempX][tempY].vegetation.maturity >= 20
+                 && map[tempX][tempY].vegetation.spreadRadius >= Math.abs(x-maxVegSpreadRadius)
+                 && map[tempX][tempY].vegetation.spreadRadius >= Math.abs(y-maxVegSpreadRadius)){
                 seeds.push(map[tempX][tempY].vegetation.name);
               }
             }
