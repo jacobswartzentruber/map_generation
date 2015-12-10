@@ -40,7 +40,7 @@ var canvas = document.getElementById("canvas"),
     numVegSpecies = 20,
     roundsVegRandomize = 3,
     biomeVegTolerance = 0.1; //Amount of tolerance biomes allows on either side of its ideal soil richness for vegetation growth
-    maxVegSpreadRadius = 3;
+    maxVegSpreadRadius = 4;
 
 //Access BiomeKey by [TemperatureZone][MoistureZone]
 var biomeKey = [["Scorched","Bare","Tundra","Snow","Snow","Snow"],
@@ -101,7 +101,6 @@ function update(){
     } 
   } 
   if(simulationRunning && currentTurn){
-    var spawnCounter = Date.now();
     vegChanged = true;
     if(roundsVegRandomize > 0){
       spawnVegetation(true);
@@ -110,14 +109,26 @@ function update(){
       console.log(vegSpeciesAlive.length+" veg species alive")
       if(roundsVegRandomize === 0 && vegSpeciesAlive.length < numVegSpecies*0.3){
         mapChanged = true;
+      }else{
+        //Otherwise remove all seeds for all tiles
+        for(var i=0; i<mapSize; i++){
+          for(var j=0; j<mapSize; j++){
+            map[i][j].seeds = [];
+          }
+        }
       }
     }else{
       spawnVegetation(false);
     }
-    spawnCounter = Date.now()-spawnCounter;
   }
   //If map has been changed then create new Vegetation Species to inhabit
   if(mapChanged){
+    //Remove previous map's seeds
+    for(var i=0; i<mapSize; i++){
+      for(var j=0; j<mapSize; j++){
+        map[i][j].seeds = [];
+      }
+    }
     vegSpeciesAlive = [];
     roundsVegRandomize = 3;
     createVegetationSpecies();
@@ -130,7 +141,23 @@ function update(){
       //Update vegetation maturity if correct frame dependent on maturity rate
       if(simulationRunning && map[i][j].vegetation && map[i][j].vegetation.maturity<100 && turnNumber%map[i][j].vegetation.maturityRate === 0){
         map[i][j].vegetation.maturity++;
-        //console.log(map[i][j].vegetation.maturity);
+        //If vegetation has matured, spread its seeds to adjacent tiles
+        if(map[i][j].vegetation.maturity === 20){
+          for(var x=0; x<maxVegSpreadRadius*2+1; x++){
+            for (var y=0; y<maxVegSpreadRadius*2+1; y++){
+              var tempX = i+x-maxVegSpreadRadius;
+              var tempY = j+y-maxVegSpreadRadius;
+              if(tempX < 0){tempX = mapSize+tempX;}
+              if(tempX >= mapSize){tempX = tempX-mapSize;}
+              if(tempY < 0){tempY = mapSize+tempY;}
+              if(tempY >= mapSize){tempY = tempY-mapSize;}
+              if(!map[tempX][tempY].vegetation){
+                map[tempX][tempY].seeds.push(map[i][j].vegetation.name);
+              }
+            }
+          }
+        }
+        //ONCE YOU ADD FUNCTIONALITY TO REMOVE VEGETATION, BE SURE TO REMOVE NEIGHBORING SEEDS WHEN REMOVING THIS VEGETATION
       }
       //Redraw map if anything about it changed
       if(mapChanged){
@@ -214,11 +241,9 @@ function update(){
     }
   }
   //Update FPS label
-  fps = Date.now()-fpsStart;
-  //fps>0 ? fps=(fps+(1000/(Date.now()-fpsStart)))/2 : fps=1000/(Date.now()-fpsStart);
+  fps>0 ? fps=(fps+(1000/(Date.now()-fpsStart)))/2 : fps=1000/(Date.now()-fpsStart);
   if(currentTurn){
     $("#fps").text("FPS "+fps);
-    $("#toggle-sim").text(spawnCounter+" "+spawnCounter/fps+"%");
     fps = 0;
   }
   viewChanged = false;
@@ -294,7 +319,7 @@ function createMap(){
     randomStepPrec -= 1;
   }
 
-  //Set Temperature and Biomes
+  //Set Temperature, Biomes and Seeds
   for(var i=0; i<mapSize; i++){
     for (var j=0; j<mapSize; j++){
       //Calculate temperature for tile
@@ -313,6 +338,9 @@ function createMap(){
         if(precLevel === 6){precLevel = 5;}
         map[i][j].biome = biomeKey[tempLevel][precLevel];
       }
+
+      //Set Seed Array
+      map[i][j].seeds = [];
     }
   }
 }
@@ -338,44 +366,27 @@ function spawnVegetation(randomizeVeg){
     for (var j=0; j<mapSize; j++){
       if(!map[i][j].vegetation && map[i][j].biome !== "Ocean"){
         //Find all contenders for vegetation population of tile and set appropriate proximity bonus
-        var seeds = [];
         if(randomizeVeg){
-          seeds.push(vegetationSpecies[Math.floor(vegetationSpecies.length*Math.random())].name);
+          map[i][j].seeds.push(vegetationSpecies[Math.floor(vegetationSpecies.length*Math.random())].name);
         }else{
-          for(var x=0; x<maxVegSpreadRadius*2+1; x++){
-            for (var y=0; y<maxVegSpreadRadius*2+1; y++){
-              var tempX = i+x-maxVegSpreadRadius;
-              var tempY = j+y-maxVegSpreadRadius;
-              if(tempX < 0){tempX = mapSize+tempX;}
-              if(tempX >= mapSize){tempX = tempX-mapSize;}
-              if(tempY < 0){tempY = mapSize+tempY;}
-              if(tempY >= mapSize){tempY = tempY-mapSize;}
-              if(map[tempX][tempY].vegetation
-                 && map[tempX][tempY].vegetation.maturity >= 20
-                 && map[tempX][tempY].vegetation.spreadRadius >= Math.abs(x-maxVegSpreadRadius)
-                 && map[tempX][tempY].vegetation.spreadRadius >= Math.abs(y-maxVegSpreadRadius)){
-                seeds.push(map[tempX][tempY].vegetation.name);
-              }
-            }
+          //Shuffle seed array
+          var currentIndex = map[i][j].seeds.length, temporaryValue, randomIndex;
+          while (0 !== currentIndex) {
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex -= 1;
+            temporaryValue = map[i][j].seeds[currentIndex];
+            map[i][j].seeds[currentIndex] = map[i][j].seeds[randomIndex];
+            map[i][j].seeds[randomIndex] = temporaryValue;
           }
         }
-        //Shuffle seed array
-        var currentIndex = seeds.length, temporaryValue, randomIndex;
-        while (0 !== currentIndex) {
-          randomIndex = Math.floor(Math.random() * currentIndex);
-          currentIndex -= 1;
-          temporaryValue = seeds[currentIndex];
-          seeds[currentIndex] = seeds[randomIndex];
-          seeds[randomIndex] = temporaryValue;
-        }
         //Going through seeds array in order, see if seed populates tile
-        for(var x=0; x<seeds.length; x++){
-          var idealBiomePercentage = 1-Math.abs(vegetationSpecies[seeds[x]].idealSoilRichness-biomeStats[map[i][j].biome].soilRichness)/biomeVegTolerance;
+        for(var x=0; x<map[i][j].seeds.length; x++){
+          var idealBiomePercentage = 1-Math.abs(vegetationSpecies[map[i][j].seeds[x]].idealSoilRichness-biomeStats[map[i][j].biome].soilRichness)/biomeVegTolerance;
           if(idealBiomePercentage < 0){idealBiomePercentage = 0;}
-          var successChance = Math.pow(idealBiomePercentage,2)*vegetationSpecies[seeds[x]].fertility/8;
+          var successChance = Math.pow(idealBiomePercentage,2)*vegetationSpecies[map[i][j].seeds[x]].fertility/8;
           if(!map[i][j].vegetation && successChance >= Math.random()){
-            if(vegSpeciesAlive.indexOf(seeds[x]) === -1){vegSpeciesAlive.push(seeds[x]);}
-            map[i][j].vegetation = Object.create(vegetationSpecies[seeds[x]]);
+            if(vegSpeciesAlive.indexOf(map[i][j].seeds[x]) === -1){vegSpeciesAlive.push(map[i][j].seeds[x]);}
+            map[i][j].vegetation = Object.create(vegetationSpecies[map[i][j].seeds[x]]);
             break;
           }
         }
