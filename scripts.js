@@ -33,7 +33,7 @@ var canvas = document.getElementById("canvas"),
     currentFrame = 0,
     turnNumber = 0,
     currentTurn = false,
-    framesPerTurn = 1,
+    framesPerTurn = 10,
     currentView = "elevation",
     vegetationSpecies = [],
     vegSpeciesAlive = [],
@@ -101,6 +101,7 @@ function update(){
     } 
   } 
   if(simulationRunning && currentTurn){
+    var spawnCounter = Date.now();
     vegChanged = true;
     if(roundsVegRandomize > 0){
       spawnVegetation(true);
@@ -113,6 +114,7 @@ function update(){
     }else{
       spawnVegetation(false);
     }
+    spawnCounter = Date.now()-spawnCounter;
   }
   //If map has been changed then create new Vegetation Species to inhabit
   if(mapChanged){
@@ -203,7 +205,7 @@ function update(){
           ctx.fillRect(iOffset*cellSize+(cellSize-vegSize)/2, jOffset*cellSize+(cellSize-vegSize)/2, vegSize, vegSize);
         }
       }
-      if(vegChanged && map[i][j].vegetation){
+      if(vegChanged && map[i][j].vegetation && map[i][j].vegetation.maturity<100){
         //Draw Vegetation
         ctx.fillStyle = 'rgba('+map[i][j].vegetation.color+',0.65)';
         var vegSize = (0.1*cellSize) + cellSize * 0.65 * (map[i][j].vegetation.maturity/100);
@@ -212,9 +214,11 @@ function update(){
     }
   }
   //Update FPS label
-  fps>0 ? fps=(fps+(1000/(Date.now()-fpsStart)))/2 : fps=1000/(Date.now()-fpsStart);
-  if(currentFrame%30 === 0){
-    $("#fps").text("FPS "+Math.round(fps));
+  fps = Date.now()-fpsStart;
+  //fps>0 ? fps=(fps+(1000/(Date.now()-fpsStart)))/2 : fps=1000/(Date.now()-fpsStart);
+  if(currentTurn){
+    $("#fps").text("FPS "+fps);
+    $("#toggle-sim").text(spawnCounter+" "+spawnCounter/fps+"%");
     fps = 0;
   }
   viewChanged = false;
@@ -338,8 +342,6 @@ function spawnVegetation(randomizeVeg){
         if(randomizeVeg){
           seeds.push(vegetationSpecies[Math.floor(vegetationSpecies.length*Math.random())].name);
         }else{
-          //THIS IMPLEMEMENTATION IS CURRENTLY WRONG BECAUSE IT ASSUMES A SPREAD RADIUS OF 3 AS
-          //EVIDENCED BY THE x<7 and x-3.  CHANGE IF YOU WANT TO INCORPORATE LOCAL SPREAD RADII
           for(var x=0; x<maxVegSpreadRadius*2+1; x++){
             for (var y=0; y<maxVegSpreadRadius*2+1; y++){
               var tempX = i+x-maxVegSpreadRadius;
@@ -374,6 +376,7 @@ function spawnVegetation(randomizeVeg){
           if(!map[i][j].vegetation && successChance >= Math.random()){
             if(vegSpeciesAlive.indexOf(seeds[x]) === -1){vegSpeciesAlive.push(seeds[x]);}
             map[i][j].vegetation = Object.create(vegetationSpecies[seeds[x]]);
+            break;
           }
         }
       }
@@ -390,7 +393,6 @@ $(window).load(function(){
 $("#new-map").click(function(){
   console.log("Generated New Map");
   createMap();
-  update();
 });
 
 $("#toggle-sim").click(function(){
@@ -398,35 +400,30 @@ $("#toggle-sim").click(function(){
   simulationRunning = !simulationRunning;
   simulationRunning ? $(this).text("Stop Simulation") : $(this).text("Start Simulation");
   console.log("Sim Running="+simulationRunning);
-  //update();
 });
 
 $("#biome-button").click(function(){
   currentView = "biome";
   console.log(currentView);
   viewChanged = true;
-  update();
 });
 
 $("#elevation-button").click(function(){
   currentView = "elevation";
   console.log(currentView);
   viewChanged = true;
-  update();
 });
 
 $("#precipitation-button").click(function(){
   currentView = "precipitation";
   console.log(currentView);
   viewChanged = true;
-  update();
 });
 
 $("#temperature-button").click(function(){
   currentView = "temperature";
   console.log(currentView);
   viewChanged = true;
-  update();
 });
 
 $( "#ocean-slider" ).slider({
@@ -466,9 +463,9 @@ $( "#precipitation-slider" ).slider({
 $("#canvas").mousemove(function(event){
   var calcSize = $(this).width()/mapSize;
   var tileX = Math.floor((event.pageX-this.offsetLeft)/calcSize);
-  if(tileX === mapSize){tileX = mapSize-1};
+  if(tileX >= mapSize){tileX = mapSize-1};
   var tileY = Math.floor((event.pageY-this.offsetTop)/calcSize);
-  if(tileY === mapSize){tileY = mapSize-1};
+  if(tileY >= mapSize){tileY = mapSize-1};
   var tileVegName = "None";
   if(map[tileX][tileY].vegetation){tileVegName = map[tileX][tileY].vegetation.name;}
   $("#tile-details").text("Tile ("+tileX+","+tileY+") Biome: "+map[tileX][tileY].biome+" Vegetation: "+tileVegName);
