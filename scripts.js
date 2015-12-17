@@ -39,8 +39,10 @@ var canvas = document.getElementById("canvas"),
     vegSpeciesAlive = [],
     numVegSpecies = 20,
     roundsVegRandomize = 3,
-    biomeVegTolerance = 0.1; //Amount of tolerance biomes allows on either side of its ideal soil richness for vegetation growth
-    maxVegSpreadRadius = 4;
+    biomeVegTolerance = 0.1, //Amount of tolerance biomes allows on either side of its ideal soil richness for vegetation growth
+    maxVegSpreadRadius = 4,
+    characters = [];
+    numCharacters = 3;
 
 //Access BiomeKey by [TemperatureZone][MoistureZone]
 var biomeKey = [["Scorched","Bare","Tundra","Snow","Snow","Snow"],
@@ -71,6 +73,65 @@ canvas.height = mapSize * cellSize;
 //Initialize blank map array with correct width
 for(var i=0; i<mapSize; i++){
   map.push([]);
+}
+
+//Define character class
+function Character(){
+  this.x = Math.floor(Math.random()*mapSize);
+  this.y = Math.floor(Math.random()*mapSize);
+}
+
+Character.prototype.draw = function(){
+  ctx.fillStyle = 'rgb(0,0,0)';
+  ctx.fillRect(this.x*cellSize, this.y*cellSize, cellSize, cellSize);
+}
+
+Character.prototype.move = function(){
+  drawTile(this.x,this.y);
+  var tempX = this.x;
+  var tempY = this.y;
+
+  //Find new random tile to travel to taking into account edges of map
+  Math.random()<0.5 ? tempX++ : tempX--;
+  if(tempX>mapSize-1){tempX=0;}
+  if(tempX<0){tempX=mapSize-1;}
+  Math.random()<0.5 ? tempY++ : tempY--;
+  if(tempY>mapSize-1){tempY=0;}
+  if(tempY<0){tempY=mapSize-1;}
+
+  //If character attempts to move to an ocean tile, take them back to original square
+  if(map[tempX][tempY].biome === "Ocean"){
+    tempX = this.x;
+    tempY = this.y;
+  }
+
+  //Set character's new coordinates
+  this.x = tempX;
+  this.y = tempY;
+}
+
+Character.prototype.removeVegetation = function(){
+  if(map[this.x][this.y].vegetation){
+    console.log("Vegetation="+map[this.x][this.y].vegetation.name+" "+map[this.x][this.y].vegetation.spreadRadius);
+    //Remove seeds from adjacent squares for vegetation that is getting removed
+    if(map[this.x][this.y].vegetation.maturity >= 20){
+      for(var i=0; i<map[this.x][this.y].vegetation.spreadRadius*2+1; i++){
+        for (var j=0; j<map[this.x][this.y].vegetation.spreadRadius*2+1; j++){
+          var tempI = this.x+i-map[this.x][this.y].vegetation.spreadRadius;
+          var tempJ = this.y+j-map[this.x][this.y].vegetation.spreadRadius;
+          if(tempI < 0){tempI = mapSize+tempI;}
+          if(tempI >= mapSize){tempI = tempI-mapSize;}
+          if(tempJ < 0){tempJ = mapSize+tempJ;}
+          if(tempJ >= mapSize){tempJ = tempJ-mapSize;}
+          var index = map[tempI][tempJ].seeds.indexOf(map[this.x][this.y].vegetation.name);
+          map[tempI][tempJ].seeds.splice(index,1);
+        }
+      }
+    }
+
+    //Remove actual vegetation from tile
+    map[this.x][this.y].vegetation = null;
+  }
 }
 
 // The update function which calculates each animation frame
@@ -120,6 +181,13 @@ function update(){
     }else{
       spawnVegetation(false);
     }
+
+    //Update character positions and remove vegetation from new position
+    for(var k=0; k<characters.length; k++){
+      characters[k].move();
+      characters[k].removeVegetation();
+    }
+
   }
   //If map has been changed then create new Vegetation Species to inhabit
   if(mapChanged){
@@ -143,17 +211,15 @@ function update(){
         map[i][j].vegetation.maturity++;
         //If vegetation has matured, spread its seeds to adjacent tiles
         if(map[i][j].vegetation.maturity === 20){
-          for(var x=0; x<maxVegSpreadRadius*2+1; x++){
-            for (var y=0; y<maxVegSpreadRadius*2+1; y++){
-              var tempX = i+x-maxVegSpreadRadius;
-              var tempY = j+y-maxVegSpreadRadius;
+          for(var x=0; x<map[i][j].vegetation.spreadRadius*2+1; x++){
+            for (var y=0; y<map[i][j].vegetation.spreadRadius*2+1; y++){
+              var tempX = i+x-map[i][j].vegetation.spreadRadius;
+              var tempY = j+y-map[i][j].vegetation.spreadRadius;
               if(tempX < 0){tempX = mapSize+tempX;}
               if(tempX >= mapSize){tempX = tempX-mapSize;}
               if(tempY < 0){tempY = mapSize+tempY;}
               if(tempY >= mapSize){tempY = tempY-mapSize;}
-              if(!map[tempX][tempY].vegetation){
-                map[tempX][tempY].seeds.push(map[i][j].vegetation.name);
-              }
+              map[tempX][tempY].seeds.push(map[i][j].vegetation.name);
             }
           }
         }
@@ -183,48 +249,7 @@ function update(){
         map[i][j].soilRichness = biomeStats[map[i][j].biome].soilRichness/8;
       }
       if(viewChanged){
-        //Colors for various Views
-        ctx.fillStyle = 'rgb('+biomeStats[map[i][j].biome].color+')';
-        
-        if(currentView === "elevation"){
-          if(map[i][j].biome === "Ocean"){
-            var elevationColor = Math.floor(255*(map[i][j].elevation/maxElevation));
-            var averageR = Math.floor(0.4*parseInt(ctx.fillStyle.substring(1,3), 16) + 0.6*elevationColor);
-            var averageG = Math.floor(0.4*parseInt(ctx.fillStyle.substring(3,5), 16) + 0.6*elevationColor);
-            var averageB = Math.floor(0.4*parseInt(ctx.fillStyle.substring(5), 16) + 0.6*elevationColor);
-            ctx.fillStyle = 'rgb('+averageR+','+averageG+','+averageB+')';
-          }else{
-            var averageR = Math.floor((((map[i][j].elevation-oceanLevel)/maxElevation)*0.75+0.25)*parseInt(ctx.fillStyle.substring(1,3), 16));
-            var averageG = Math.floor((((map[i][j].elevation-oceanLevel)/maxElevation)*0.75+0.25)*parseInt(ctx.fillStyle.substring(3,5), 16));
-            var averageB = Math.floor((((map[i][j].elevation-oceanLevel)/maxElevation)*0.75+0.25)*parseInt(ctx.fillStyle.substring(5), 16));
-            ctx.fillStyle = 'rgb('+averageR+','+averageG+','+averageB+')';
-          }
-          
-        }
-        else if(currentView === "precipitation"){
-          var overlayG = Math.floor((1-map[i][j].precipitation/maxPrecipitation)*(parseInt(ctx.fillStyle.substring(3,5), 16)/2) + Math.floor((map[i][j].precipitation/maxPrecipitation)*255));
-          var overlayB = Math.floor((1-map[i][j].precipitation/maxPrecipitation)*(parseInt(ctx.fillStyle.substring(5), 16)/2) + Math.floor((map[i][j].precipitation/maxPrecipitation)*255));
-          var averageG = Math.floor((1-precipitationDensity)*(parseInt(ctx.fillStyle.substring(3,5), 16)/2) + Math.floor(precipitationDensity*overlayG));
-          var averageB = Math.floor((1-precipitationDensity)*(parseInt(ctx.fillStyle.substring(5), 16)/2) + Math.floor(precipitationDensity*overlayB));
-          ctx.fillStyle = 'rgb('+Math.floor(parseInt(ctx.fillStyle.substring(1,3), 16)/2)+','+averageG+','+averageB+')';
-        }
-        else if(currentView === "temperature"){
-          var localTemp = Math.floor((map[i][j].temperature/maxTemperature)*(highTemp-lowTemp))+lowTemp;
-          if(map[i][j].biome !== "Ocean"){
-            var adjElevTemp = map[i][j].temperature-Math.round(((2*maxTempStep*(map[i][j].elevation-oceanLevel))/maxElevation)-maxTempStep);
-            if(adjElevTemp<0){
-              adjElevTemp = 0;
-            }else if(adjElevTemp>maxTemperature){
-              adjElevTemp = maxTemperature;
-            }
-            localTemp = Math.floor((adjElevTemp/maxTemperature)*(highTemp-lowTemp))+lowTemp;
-          }
-          var halfG = Math.floor(parseInt(ctx.fillStyle.substring(3,5), 16)/2);
-          var averageB = Math.floor((1-localTemp/maxTemperature)*parseInt(ctx.fillStyle.substring(5), 16)+Math.floor(255*(1-localTemp/maxTemperature)));
-          ctx.fillStyle = 'rgb('+Math.round(255*(localTemp/maxTemperature))+','+halfG+','+averageB+')';
-        }
-        ctx.fillRect(iOffset*cellSize, jOffset*cellSize, cellSize, cellSize);
-
+        drawTile(i,j);
         //Draw Vegetation
         if(map[i][j].vegetation){
           ctx.fillStyle = 'rgba('+map[i][j].vegetation.color+',0.65)';
@@ -240,6 +265,11 @@ function update(){
       }
     }
   }
+  //Draw Characters
+  for(var k=0; k<characters.length; k++){
+    characters[k].draw();
+  }
+
   //Update FPS label
   fps>0 ? fps=(fps+(1000/(Date.now()-fpsStart)))/2 : fps=1000/(Date.now()-fpsStart);
   if(currentTurn){
@@ -251,6 +281,54 @@ function update(){
   vegChanged = false;
   currentTurn = false;
   requestAnimationFrame(update);
+}
+
+function drawTile(i,j){
+  var iOffset, jOffset;
+  i+mapXOffset >= mapSize ? iOffset = i+mapXOffset-mapSize : iOffset = i+mapXOffset;
+  j+mapYOffset >= mapSize ? jOffset = j+mapYOffset-mapSize : jOffset = j+mapYOffset;
+
+  //Colors for various Views
+  ctx.fillStyle = 'rgb('+biomeStats[map[i][j].biome].color+')';
+
+  if(currentView === "elevation"){
+    if(map[i][j].biome === "Ocean"){
+      var elevationColor = Math.floor(255*(map[i][j].elevation/maxElevation));
+      var averageR = Math.floor(0.4*parseInt(ctx.fillStyle.substring(1,3), 16) + 0.6*elevationColor);
+      var averageG = Math.floor(0.4*parseInt(ctx.fillStyle.substring(3,5), 16) + 0.6*elevationColor);
+      var averageB = Math.floor(0.4*parseInt(ctx.fillStyle.substring(5), 16) + 0.6*elevationColor);
+      ctx.fillStyle = 'rgb('+averageR+','+averageG+','+averageB+')';
+    }else{
+      var averageR = Math.floor((((map[i][j].elevation-oceanLevel)/maxElevation)*0.75+0.25)*parseInt(ctx.fillStyle.substring(1,3), 16));
+      var averageG = Math.floor((((map[i][j].elevation-oceanLevel)/maxElevation)*0.75+0.25)*parseInt(ctx.fillStyle.substring(3,5), 16));
+      var averageB = Math.floor((((map[i][j].elevation-oceanLevel)/maxElevation)*0.75+0.25)*parseInt(ctx.fillStyle.substring(5), 16));
+      ctx.fillStyle = 'rgb('+averageR+','+averageG+','+averageB+')';
+    }
+    
+  }
+  else if(currentView === "precipitation"){
+    var overlayG = Math.floor((1-map[i][j].precipitation/maxPrecipitation)*(parseInt(ctx.fillStyle.substring(3,5), 16)/2) + Math.floor((map[i][j].precipitation/maxPrecipitation)*255));
+    var overlayB = Math.floor((1-map[i][j].precipitation/maxPrecipitation)*(parseInt(ctx.fillStyle.substring(5), 16)/2) + Math.floor((map[i][j].precipitation/maxPrecipitation)*255));
+    var averageG = Math.floor((1-precipitationDensity)*(parseInt(ctx.fillStyle.substring(3,5), 16)/2) + Math.floor(precipitationDensity*overlayG));
+    var averageB = Math.floor((1-precipitationDensity)*(parseInt(ctx.fillStyle.substring(5), 16)/2) + Math.floor(precipitationDensity*overlayB));
+    ctx.fillStyle = 'rgb('+Math.floor(parseInt(ctx.fillStyle.substring(1,3), 16)/2)+','+averageG+','+averageB+')';
+  }
+  else if(currentView === "temperature"){
+    var localTemp = Math.floor((map[i][j].temperature/maxTemperature)*(highTemp-lowTemp))+lowTemp;
+    if(map[i][j].biome !== "Ocean"){
+      var adjElevTemp = map[i][j].temperature-Math.round(((2*maxTempStep*(map[i][j].elevation-oceanLevel))/maxElevation)-maxTempStep);
+      if(adjElevTemp<0){
+        adjElevTemp = 0;
+      }else if(adjElevTemp>maxTemperature){
+        adjElevTemp = maxTemperature;
+      }
+      localTemp = Math.floor((adjElevTemp/maxTemperature)*(highTemp-lowTemp))+lowTemp;
+    }
+    var halfG = Math.floor(parseInt(ctx.fillStyle.substring(3,5), 16)/2);
+    var averageB = Math.floor((1-localTemp/maxTemperature)*parseInt(ctx.fillStyle.substring(5), 16)+Math.floor(255*(1-localTemp/maxTemperature)));
+    ctx.fillStyle = 'rgb('+Math.round(255*(localTemp/maxTemperature))+','+halfG+','+averageB+')';
+  }
+  ctx.fillRect(iOffset*cellSize, jOffset*cellSize, cellSize, cellSize);
 }
 
 function createMap(){
@@ -342,6 +420,11 @@ function createMap(){
       //Set Seed Array
       map[i][j].seeds = [];
     }
+  }
+
+  //Create characters
+  for(var k=0; k<numCharacters; k++){
+    characters[k] = new Character();
   }
 }
 
