@@ -92,12 +92,16 @@ Character.prototype.move = function(){
   var tempY = this.y;
 
   //Find new random tile to travel to taking into account edges of map
-  Math.random()<0.5 ? tempX++ : tempX--;
-  if(tempX>mapSize-1){tempX=0;}
-  if(tempX<0){tempX=mapSize-1;}
-  Math.random()<0.5 ? tempY++ : tempY--;
-  if(tempY>mapSize-1){tempY=0;}
-  if(tempY<0){tempY=mapSize-1;}
+  if(Math.random()>0.33){
+    Math.random()<0.5 ? tempX++ : tempX--;
+    if(tempX>mapSize-1){tempX=0;}
+    if(tempX<0){tempX=mapSize-1;}
+  }
+  if(Math.random()>0.33){
+    Math.random()<0.5 ? tempY++ : tempY--;
+    if(tempY>mapSize-1){tempY=0;}
+    if(tempY<0){tempY=mapSize-1;}
+  }
 
   //If character attempts to move to an ocean tile, take them back to original square
   if(map[tempX][tempY].biome === "Ocean"){
